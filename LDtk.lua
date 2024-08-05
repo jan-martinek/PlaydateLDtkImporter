@@ -221,12 +221,7 @@ end
 
 -- Call this function to save the LDtk level in lua files to improve loading performance
 -- The files will be saved in the aave folder of the game (PlaydateSDK/Disk/Data)
-function LDtk.export_to_lua_files()
-	if _use_lua_levels then
-		print("LDtk Importer Error: Cannot export level in lua. The system had loaded lua files instead of .ldtk")
-		return
-	end
-
+function _.export_to_lua_files()
 	local folder = _ldtk_lua_foldername.."/"
 	playdate.file.mkdir(_ldtk_lua_foldername)
 
@@ -252,6 +247,46 @@ function LDtk.export_to_lua_files()
 		LDtk.load_level( level_name )
 		_.export_lua_table( folder.._.get_filename(level_file)..".lua", _levels[ level_name ])
 		LDtk.release_level( level_name )
+	end
+end
+
+function _.export_to_external_lua_files()
+	local folder = _ldtk_lua_foldername.."/"
+	playdate.file.mkdir(_ldtk_lua_foldername)
+
+	local lua_level_files = {}
+	for level_name in pairs(_levels) do
+		lua_level_files[ level_name ] = _ldtk_lua_folder..level_name..".ldtkl.pdz"
+	end
+
+	print("LDtk Importer: Export LDtk world...")
+	_.export_lua_table( folder.._.get_filename(_ldtk_filepath)..".lua", {
+		tilesets = _tilesets,
+		level_files = lua_level_files,
+		level_names = _level_names,
+		level_rects = _level_rects,
+		levels = {},
+		use_external_files = true,
+	})
+
+	for level_name, level in pairs(_levels) do
+		print("LDtk Importer: Export LDtk level", level_name)
+		_.export_lua_table( folder..level_name..".ldtk.lua", level)
+	end
+end
+
+function LDtk.export_to_lua_files(force_export_to_external_files)
+	if _use_lua_levels then
+		print("LDtk Importer Error: Cannot export level in lua. The system had loaded lua files instead of .ldtk")
+		return
+	end
+
+	if _use_external_files then
+		_.export_to_lua_files()
+	elseif force_export_to_external_files then
+		_.export_to_external_lua_files()
+	else
+		_.export_to_lua_files()
 	end
 end
 
