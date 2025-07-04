@@ -370,6 +370,26 @@ function LDtk.create_tilemap( level_name, layer_name )
 	return tilemap
 end
 
+-- draws all stacked tiles into context (push rendered tilemap image)
+function LDtk.draw_stacked_tiles( level_name, layer_name )
+	local level = _levels[level_name]
+	if not level then return end
+
+	local layer = level.layers[ layer_name ]
+	if not layer then return end
+
+	local stacked_tiles = layer.stackedTiles
+	if not stacked_tiles then return end
+
+	for position, stack in pairs(stacked_tiles) do
+		local x, y = position % layer.tilemap_width, position // layer.tilemap_width
+
+		for _, tile in ipairs(stack) do
+			layer.tileset_image[tile]:draw(x * layer.grid_size, y * layer.grid_size)
+		end
+	end
+end
+
 -- return a table with all the adjacent levels
 -- @direction is optional: values can be "east", "west", "north", "south", "back", "front", "northwest", "northeast", "southwest", "southeast"
 function LDtk.get_neighbours( level_name, direction )
@@ -685,8 +705,12 @@ function _.process_level_data( level_data )
 			::finish_flip_search::
 
 			local tiles_list = {}
-			for tile_index, tile_data in ipairs(tiles_data) do
+			local stacked_tiles = nil
+			local has_stacked_tiles = false
+			for _, tile_data in ipairs(tiles_data) do
 				local id = (tile_data.px[2]/gsize)*layer_data.__cWid + tile_data.px[1]/gsize
+				local does_stack = tiles_list[id] ~= nil
+				local stacked_before = tiles_list[id]
 
 				if layer.has_flipped_tiles then
 					local cx, cy = tile_data.src[1]/gsize, tile_data.src[2]/gsize
@@ -703,6 +727,24 @@ function _.process_level_data( level_data )
 				else
 					tiles_list[id] = 1 + tile_data.t
 				end
+
+				if does_stack then
+					has_stacked_tiles = true
+					
+					if not stacked_tiles then
+						stacked_tiles = {}
+					end
+
+					if stacked_tiles[id] then
+						table.insert( stacked_tiles[id], math.floor(tiles_list[id]) )
+					else
+						stacked_tiles[id] = { math.floor(stacked_before), math.floor(tiles_list[id]) }
+					end
+				end
+			end
+
+			if has_stacked_tiles then
+				layer.stackedTiles = stacked_tiles
 			end
 
 			for y = 0, layer_data.__cHei-1 do
